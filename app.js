@@ -1,4 +1,7 @@
-const WORKER_URL = "https://yt-proxy.ahahadane.workers.dev/";
+  import { Innertube } from "https://esm.sh/youtubei.js/web";
+
+const WORKER_URL =
+  "https://yt-proxy.ahahadane.workers.dev/";
 
 const searchInput = document.getElementById("searchInput");
 const searchButton = document.getElementById("searchButton");
@@ -6,6 +9,8 @@ const status = document.getElementById("status");
 const results = document.getElementById("results");
 const video = document.getElementById("video");
 const videoTitle = document.getElementById("videoTitle");
+
+let yt = null;
 
 function setStatus(message) {
   status.textContent = message;
@@ -32,6 +37,78 @@ function extractVideoId(value) {
   return null;
 }
 
+async function initYouTube() {
+  if (yt) return yt;
+
+  setStatus("YouTube.jsを初期化中...");
+
+  yt = await Innertube.create({
+    fetch: async (input, init = {}) => {
+      const target =
+        input instanceof Request
+          ? input.url
+          : input.toString();
+
+      const proxyUrl =
+        `${WORKER_URL}?url=${encodeURIComponent(target)}`;
+
+      return fetch(proxyUrl, {
+        ...init,
+        credentials: "omit"
+      });
+    }
+  });
+
+  setStatus("YouTube.js準備完了");
+
+  return yt;
+}
+
+async function loadVideo(videoId) {
+  const client = await initYouTube();
+
+  setStatus("動画情報を取得中...");
+
+  const info = await client.getInfo(videoId, {
+    client: "TV"
+  });
+
+  const title =
+    info.basic_info?.title ||
+    "タイトル取得失敗";
+
+  videoTitle.textContent = title;
+
+  results.innerHTML = `
+    <div class="result">
+      <img
+        class="thumbnail"
+        src="https://i.ytimg.com/vi/${videoId}/hqdefault.jpg"
+        alt=""
+      >
+
+      <div>
+        <div class="result-title">
+          ${escapeHtml(title)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  setStatus("動画情報を取得しました。");
+
+  return info;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 async function handleSearch() {
   const value = searchInput.value.trim();
 
@@ -47,39 +124,29 @@ async function handleSearch() {
     return;
   }
 
-  setStatus(`動画IDを取得しました: ${videoId}`);
+  try {
+    await loadVideo(videoId);
+  } catch (error) {
+    console.error(error);
 
-  results.innerHTML = `
-    <div class="result">
-      <img
-        class="thumbnail"
-        src="https://i.ytimg.com/vi/${videoId}/hqdefault.jpg"
-        alt=""
-      >
-      <div>
-        <div class="result-title">
-          動画を読み込み中...
-        </div>
-      </div>
-    </div>
-  `;
-
-  videoTitle.textContent = "";
-  video.removeAttribute("src");
-  video.load();
-
-  /*
-   * 次の段階でここにYouTube.jsの
-   * 動画情報取得・再生URL取得処理を追加する。
-   */
+    setStatus(
+      `取得失敗: ${error?.message || error}`
+    );
+  }
 }
 
-searchButton.addEventListener("click", handleSearch);
+searchButton.addEventListener(
+  "click",
+  handleSearch
+);
 
-searchInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    handleSearch();
+searchInput.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key === "Enter") {
+      handleSearch();
+    }
   }
-});
+);
 
 setStatus("準備完了");
