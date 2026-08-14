@@ -192,53 +192,7 @@
 
   </main>
 
-  <script>
-    const WORKER_URL =
-      "https://yt-proxy.ahahadane.workers.dev/";
 
-    const searchInput =
-      document.getElementById("searchInput");
-
-    const searchButton =
-      document.getElementById("searchButton");
-
-    const status =
-      document.getElementById("status");
-
-    const results =
-      document.getElementById("results");
-
-    const video =
-      document.getElementById("video");
-
-    const videoTitle =
-      document.getElementById("videoTitle");
-
-
-    searchButton.addEventListener("click", () => {
-      const value = searchInput.value.trim();
-
-      if (!value) {
-        status.textContent = "YouTube URLを入力してください。";
-        return;
-      }
-
-      status.textContent =
-        "YouTube.js実装待ちです。";
-
-      results.innerHTML = "";
-      videoTitle.textContent = "";
-      video.removeAttribute("src");
-      video.load();
-    });
-
-
-    searchInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        searchButton.click();
-      }
-    });
-  </script>
 
 </body>
 </html>
