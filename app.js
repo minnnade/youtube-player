@@ -52,10 +52,20 @@ async function initYouTube() {
       const proxyUrl =
         `${WORKER_URL}?url=${encodeURIComponent(target)}`;
 
-      return fetch(proxyUrl, {
+      const requestInit = {
         ...init,
         credentials: "omit"
-      });
+      };
+
+      const method =
+        (requestInit.method || "GET").toUpperCase();
+
+      // ブラウザのfetchではGET/HEADにbodyを付けられない
+      if (method === "GET" || method === "HEAD") {
+        delete requestInit.body;
+      }
+
+      return fetch(proxyUrl, requestInit);
     }
   });
 
