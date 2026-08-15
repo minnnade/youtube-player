@@ -1,4 +1,4 @@
-  import { Innertube } from "https://esm.sh/youtubei.js/web";
+import { Innertube } from "https://esm.sh/youtubei.js@17.2.0/web.bundle";
 
 const WORKER_URL =
   "https://yt-proxy.ahahadane.workers.dev/";
