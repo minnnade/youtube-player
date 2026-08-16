@@ -71,7 +71,6 @@ async function initYouTube() {
         credentials: "omit"
       };
 
-      // GET / HEADにはbodyを付けない
       if (method !== "GET" && method !== "HEAD") {
         requestInit.body =
           await originalRequest
@@ -93,12 +92,8 @@ async function loadVideo(videoId) {
 
   setStatus("動画情報を取得中...");
 
-  // getInfo()ではなくgetBasicInfo()を使用
-  // getInfo()は /player と /next の両方を呼ぶため、
-  // まずは /player だけで基本情報取得を確認する。
-  const info = await client.getBasicInfo(videoId, {
-    client: "TV"
-  });
+  // 標準クライアントを使用
+  const info = await client.getBasicInfo(videoId);
 
   const title =
     info.basic_info?.title ||
