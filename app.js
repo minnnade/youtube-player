@@ -44,25 +44,39 @@ async function initYouTube() {
 
   yt = await Innertube.create({
     fetch: async (input, init = {}) => {
-      const target =
+      const originalRequest =
         input instanceof Request
-          ? input.url
-          : input.toString();
+          ? input
+          : new Request(input, init);
+
+      const target = originalRequest.url;
 
       const proxyUrl =
         `${WORKER_URL}?url=${encodeURIComponent(target)}`;
 
+      const method =
+        originalRequest.method.toUpperCase();
+
+      const headers =
+        new Headers(originalRequest.headers);
+
+      headers.delete("host");
+      headers.delete("origin");
+      headers.delete("referer");
+      headers.delete("content-length");
+
       const requestInit = {
-        ...init,
+        method,
+        headers,
         credentials: "omit"
       };
 
-      const method =
-        (requestInit.method || "GET").toUpperCase();
-
-      // ブラウザのfetchではGET/HEADにbodyを付けられない
-      if (method === "GET" || method === "HEAD") {
-        delete requestInit.body;
+      // GET / HEADにはbodyを付けない
+      if (method !== "GET" && method !== "HEAD") {
+        requestInit.body =
+          await originalRequest
+            .clone()
+            .arrayBuffer();
       }
 
       return fetch(proxyUrl, requestInit);
@@ -130,7 +144,9 @@ async function handleSearch() {
   const videoId = extractVideoId(value);
 
   if (!videoId) {
-    setStatus("YouTube URLを認識できませんでした。");
+    setStatus(
+      "YouTube URLを認識できませんでした。"
+    );
     return;
   }
 
