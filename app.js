@@ -93,7 +93,10 @@ async function loadVideo(videoId) {
 
   setStatus("動画情報を取得中...");
 
-  const info = await client.getInfo(videoId, {
+  // getInfo()ではなくgetBasicInfo()を使用
+  // getInfo()は /player と /next の両方を呼ぶため、
+  // まずは /player だけで基本情報取得を確認する。
+  const info = await client.getBasicInfo(videoId, {
     client: "TV"
   });
 
@@ -120,6 +123,8 @@ async function loadVideo(videoId) {
   `;
 
   setStatus("動画情報を取得しました。");
+
+  console.log("Video info:", info);
 
   return info;
 }
