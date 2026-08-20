@@ -90,26 +90,19 @@ export default {
           }, 404);
         }
 
+        const deciphered = await format.decipher();
+
         return json({
           ok: true,
           videoId,
           title: info.basic_info?.title || null,
 
-          formatType: typeof format,
+          decipheredType: typeof deciphered,
 
-          formatKeys: Object.keys(format),
-
-          formatPrototypeKeys: Object.getOwnPropertyNames(
-            Object.getPrototypeOf(format)
-          ),
-
-          urlType: typeof format.url,
-
-          hasUrl: !!format.url,
-
-          hasSignatureCipher: !!format.signature_cipher,
-
-          hasCipher: !!format.cipher
+          decipheredKeys:
+            deciphered && typeof deciphered === "object"
+              ? Object.keys(deciphered)
+              : []
         });
 
       } catch (error) {
