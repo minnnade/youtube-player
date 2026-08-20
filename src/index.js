@@ -7,7 +7,7 @@ const CORS_HEADERS = {
 };
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify(data, null, 2), {
     status,
     headers: {
       "Content-Type": "application/json; charset=UTF-8",
@@ -83,14 +83,7 @@ export default {
         return json({
           ok: true,
           videoId,
-          title: info.basic_info?.title || null,
-          hasStreamingData: !!info.streaming_data,
-          streamingKeys: info.streaming_data
-            ? Object.keys(info.streaming_data)
-            : [],
-          formatCount: info.streaming_data?.formats?.length || 0,
-          adaptiveFormatCount:
-            info.streaming_data?.adaptive_formats?.length || 0
+          title: info.basic_info?.title || null
         });
 
       } catch (error) {
@@ -98,7 +91,10 @@ export default {
 
         return json({
           ok: false,
-          error: String(error)
+          errorName: error?.name || null,
+          errorMessage: error?.message || String(error),
+          errorString: String(error),
+          stack: error?.stack || null
         }, 500);
       }
     }
