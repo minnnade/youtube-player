@@ -81,23 +81,35 @@ export default {
           }, 404);
         }
 
-        const formats = streamingData.formats || [];
+        const format = streamingData.formats?.[0];
 
-        const candidates = formats.map((format) => ({
-          itag: format.itag ?? null,
-          mimeType: format.mime_type ?? null,
-          quality: format.quality ?? null,
-          width: format.width ?? null,
-          height: format.height ?? null,
-          hasUrl: !!format.url
-        }));
+        if (!format) {
+          return json({
+            ok: false,
+            error: "No format found"
+          }, 404);
+        }
 
         return json({
           ok: true,
           videoId,
           title: info.basic_info?.title || null,
-          formatCount: formats.length,
-          candidates
+
+          formatType: typeof format,
+
+          formatKeys: Object.keys(format),
+
+          formatPrototypeKeys: Object.getOwnPropertyNames(
+            Object.getPrototypeOf(format)
+          ),
+
+          urlType: typeof format.url,
+
+          hasUrl: !!format.url,
+
+          hasSignatureCipher: !!format.signature_cipher,
+
+          hasCipher: !!format.cipher
         });
 
       } catch (error) {
