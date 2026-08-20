@@ -1,4 +1,4 @@
-import { Innertube } from "youtubei.js";
+import { Innertube } from "youtubei.js/cf-worker";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
