@@ -77,13 +77,25 @@ export default {
 
       try {
         const yt = await getYouTube();
-
         const info = await yt.getInfo(videoId);
+
+        const streamingData = info.streaming_data || null;
 
         return json({
           ok: true,
           videoId,
-          title: info.basic_info?.title || null
+          title: info.basic_info?.title || null,
+
+          hasStreamingData: !!streamingData,
+
+          streamingKeys: streamingData
+            ? Object.keys(streamingData)
+            : [],
+
+          formatCount: streamingData?.formats?.length || 0,
+
+          adaptiveFormatCount:
+            streamingData?.adaptive_formats?.length || 0
         });
 
       } catch (error) {
@@ -93,8 +105,7 @@ export default {
           ok: false,
           errorName: error?.name || null,
           errorMessage: error?.message || String(error),
-          errorString: String(error),
-          stack: error?.stack || null
+          errorString: String(error)
         }, 500);
       }
     }
