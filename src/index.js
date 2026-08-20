@@ -40,13 +40,6 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/test") {
-      return json({
-        ok: true,
-        message: "Worker API is working"
-      });
-    }
-
     if (url.pathname === "/api/youtubejs") {
       if (request.method !== "POST") {
         return json({
@@ -79,23 +72,32 @@ export default {
         const yt = await getYouTube();
         const info = await yt.getInfo(videoId);
 
-        const streamingData = info.streaming_data || null;
+        const streamingData = info.streaming_data;
+
+        if (!streamingData) {
+          return json({
+            ok: false,
+            error: "No streaming data"
+          }, 404);
+        }
+
+        const formats = streamingData.formats || [];
+
+        const candidates = formats.map((format) => ({
+          itag: format.itag ?? null,
+          mimeType: format.mime_type ?? null,
+          quality: format.quality ?? null,
+          width: format.width ?? null,
+          height: format.height ?? null,
+          hasUrl: !!format.url
+        }));
 
         return json({
           ok: true,
           videoId,
           title: info.basic_info?.title || null,
-
-          hasStreamingData: !!streamingData,
-
-          streamingKeys: streamingData
-            ? Object.keys(streamingData)
-            : [],
-
-          formatCount: streamingData?.formats?.length || 0,
-
-          adaptiveFormatCount:
-            streamingData?.adaptive_formats?.length || 0
+          formatCount: formats.length,
+          candidates
         });
 
       } catch (error) {
