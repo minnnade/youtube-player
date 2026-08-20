@@ -77,12 +77,25 @@ export default {
 
       try {
         const yt = await getYouTube();
+
         const info = await yt.getInfo(videoId);
+
+        const streaming = await yt.getStreamingData(videoId, {
+          type: "video+audio",
+          quality: "best"
+        });
 
         return json({
           ok: true,
           videoId,
-          title: info.basic_info?.title || null
+          title: info.basic_info?.title || null,
+          stream: {
+            url: streaming.url || null,
+            mimeType: streaming.mime_type || null,
+            quality: streaming.quality || null,
+            width: streaming.width || null,
+            height: streaming.height || null
+          }
         });
 
       } catch (error) {
