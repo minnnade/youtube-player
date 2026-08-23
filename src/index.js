@@ -92,17 +92,36 @@ export default {
 
         const deciphered = await format.decipher();
 
+        const decipheredInfo = {
+          type: typeof deciphered,
+          isHttpUrl: false,
+          protocol: null,
+          hostname: null,
+          pathname: null,
+          length:
+            typeof deciphered === "string"
+              ? deciphered.length
+              : null
+        };
+
+        if (typeof deciphered === "string") {
+          try {
+            const parsed = new URL(deciphered);
+
+            decipheredInfo.isHttpUrl = true;
+            decipheredInfo.protocol = parsed.protocol;
+            decipheredInfo.hostname = parsed.hostname;
+            decipheredInfo.pathname = parsed.pathname;
+          } catch {
+            // URLとして解析できなかった
+          }
+        }
+
         return json({
           ok: true,
           videoId,
           title: info.basic_info?.title || null,
-
-          decipheredType: typeof deciphered,
-
-          decipheredKeys:
-            deciphered && typeof deciphered === "object"
-              ? Object.keys(deciphered)
-              : []
+          decipheredInfo
         });
 
       } catch (error) {
