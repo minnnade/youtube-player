@@ -1,144 +1,32 @@
-import { Innertube } from "youtubei.js/cf-worker";
+import { Innertube } from 'youtubei.js/web';
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "*"
-};
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=UTF-8",
-      ...CORS_HEADERS
-    }
-  });
-}
-
-let ytPromise = null;
-
-async function getYouTube() {
-  if (!ytPromise) {
-    ytPromise = Innertube.create({
-      lang: "ja",
-      location: "JP"
-    });
-  }
-
-  return ytPromise;
-}
-
+let yt;
 export default {
-  async fetch(request) {
-    const url = new URL(request.url);
+  async fetch(req) {
+    const url = new URL(req.url);
+    const videoId = url.searchParams.get('v');
+    if (!videoId) return new Response('動画ID (?v=xxx) がありません', { status: 400 });
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: CORS_HEADERS
-      });
+    try {
+      // 1. YouTubeの動画情報を取得
+      if (!yt) yt = await Innertube.create({ fetch: (u, o) => fetch(u, o) });
+      const format = await yt.getStreamingData(videoId, { type: 'video+audio', quality: 'best' });
+
+      // 2. ブラウザからの動画リクエスト（Range）をそのままYouTubeに流す
+      const ytHeaders = new Headers({ 'User-Agent': 'Mozilla/5.0' });
+      if (req.headers.has('range')) ytHeaders.set('range', req.headers.get('range'));
+
+      // 3. YouTubeから動画データを引っ張ってくる
+      const res = await fetch(format.url, { headers: ytHeaders });
+
+      // 4. CORSエラーが起きないようにしてブラウザに動画を返す
+      const headers = new Headers(res.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Access-Control-Allow-Headers', '*');
+      
+      return new Response(res.body, { status: res.status, headers });
+    } catch (e) {
+      return new Response(`エラー: ${e.message}`, { status: 500 });
     }
-
-    if (url.pathname === "/api/youtubejs") {
-      if (request.method !== "POST") {
-        return json({
-          ok: false,
-          error: "POST required"
-        }, 405);
-      }
-
-      let body;
-
-      try {
-        body = await request.json();
-      } catch {
-        return json({
-          ok: false,
-          error: "Invalid JSON"
-        }, 400);
-      }
-
-      const videoId = body.videoId;
-
-      if (!videoId) {
-        return json({
-          ok: false,
-          error: "videoId required"
-        }, 400);
-      }
-
-      try {
-        const yt = await getYouTube();
-        const info = await yt.getInfo(videoId);
-
-        const streamingData = info.streaming_data;
-
-        if (!streamingData) {
-          return json({
-            ok: false,
-            error: "No streaming data"
-          }, 404);
-        }
-
-        const format = streamingData.formats?.[0];
-
-        if (!format) {
-          return json({
-            ok: false,
-            error: "No format found"
-          }, 404);
-        }
-
-        const deciphered = await format.decipher();
-
-        const decipheredInfo = {
-          type: typeof deciphered,
-          isHttpUrl: false,
-          protocol: null,
-          hostname: null,
-          pathname: null,
-          length:
-            typeof deciphered === "string"
-              ? deciphered.length
-              : null
-        };
-
-        if (typeof deciphered === "string") {
-          try {
-            const parsed = new URL(deciphered);
-
-            decipheredInfo.isHttpUrl = true;
-            decipheredInfo.protocol = parsed.protocol;
-            decipheredInfo.hostname = parsed.hostname;
-            decipheredInfo.pathname = parsed.pathname;
-          } catch {
-            // URLとして解析できなかった
-          }
-        }
-
-        return json({
-          ok: true,
-          videoId,
-          title: info.basic_info?.title || null,
-          decipheredInfo
-        });
-
-      } catch (error) {
-        console.error("YouTube.js error:", error);
-
-        return json({
-          ok: false,
-          errorName: error?.name || null,
-          errorMessage: error?.message || String(error),
-          errorString: String(error)
-        }, 500);
-      }
-    }
-
-    return json({
-      ok: false,
-      error: "Not found"
-    }, 404);
   }
 };
