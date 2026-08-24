@@ -4,29 +4,68 @@ let yt;
 export default {
   async fetch(req) {
     const url = new URL(req.url);
-    const videoId = url.searchParams.get('v');
-    if (!videoId) return new Response('動画ID (?v=xxx) がありません', { status: 400 });
+    
+    // ⚠️「?v=動画ID」だけでなく「?url=YouTubeのURL」でも受け取れるようにする
+    let videoId = url.searchParams.get('v');
+    const fullUrl = url.searchParams.get('url');
+
+    // もし?url=... でYouTubeのURLが届いたら、ここから動画ID（11文字）を抜き出す
+    if (fullUrl) {
+      if (fullUrl.includes('youtu.be/')) {
+        videoId = fullUrl.split('youtu.be/')[1]?.split(/[?#]/)[0];
+      } else if (fullUrl.includes('v=')) {
+        videoId = fullUrl.split('v=')[1]?.split(/[&#]/)[0];
+      } else if (fullUrl.includes('embed/')) {
+        videoId = fullUrl.split('embed/')[1]?.split(/[?#]/)[0];
+      } else {
+        videoId = fullUrl;
+      }
+    }
+
+    if (!videoId) return new Response('Missing video ID (?v=xxx or ?url=xxx)', { status: 400 });
+
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    };
+
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
 
     try {
-      // 1. YouTubeの動画情報を取得
-      if (!yt) yt = await Innertube.create({ fetch: (u, o) => fetch(u, o) });
-      const format = await yt.getStreamingData(videoId, { type: 'video+audio', quality: 'best' });
+      if (!yt) {
+        yt = await Innertube.create({ 
+          fetch: (u, o) => fetch(u, o),
+          client_type: 'ANDROID' 
+        });
+      }
 
-      // 2. ブラウザからの動画リクエスト（Range）をそのままYouTubeに流す
-      const ytHeaders = new Headers({ 'User-Agent': 'Mozilla/5.0' });
+      const info = await yt.getBasicInfo(videoId);
+      const format = info.chooseFormat({ type: 'video+audio', quality: 'best' });
+
+      if (!format) return new Response('Format not found', { status: 404, headers: corsHeaders });
+
+      const decipheredUrl = await format.decipher(yt.session.player);
+
+      const ytHeaders = new Headers({ 
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
+        'Accept': '*/*'
+      });
       if (req.headers.has('range')) ytHeaders.set('range', req.headers.get('range'));
 
-      // 3. YouTubeから動画データを引っ張ってくる
-      const res = await fetch(format.url, { headers: ytHeaders });
+      const res = await fetch(decipheredUrl, { headers: ytHeaders });
 
-      // 4. CORSエラーが起きないようにしてブラウザに動画を返す
-      const headers = new Headers(res.headers);
-      headers.set('Access-Control-Allow-Origin', '*');
-      headers.set('Access-Control-Allow-Headers', '*');
+      const responseHeaders = new Headers(res.headers);
+      for (const [key, value] of Object.entries(corsHeaders)) {
+        responseHeaders.set(key, value);
+      }
       
-      return new Response(res.body, { status: res.status, headers });
+      return new Response(res.body, { status: res.status, headers: responseHeaders });
     } catch (e) {
-      return new Response(`エラー: ${e.message}`, { status: 500 });
+      return new Response(`Error: ${e.message}`, { status: 500, headers: corsHeaders });
     }
   }
 };
+
