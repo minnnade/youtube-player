@@ -6,21 +6,19 @@
 </head>
 <body>
 
-    <!-- 1. 動画を表示するプレイヤー（横幅100%） -->
-    <video id="my-player" controls width="100%" height="auto">
-        動画を再生できません。
-    </video>
+    <!-- crossorigin="anonymous" を入れてCORSエラーを防ぐ -->
+    <video id="my-player" controls width="100%" height="auto" crossorigin="anonymous"></video>
 
     <script>
-        // 2. あなたが作ったCloudflareのURLに書き換えてください
-        const proxyBaseUrl = "https://workers.dev"; 
+        // ⚠️【注意】あなたのCloudflareのURLを入れてください（末尾の / は消してください）
+        const proxyBaseUrl = "https://pages.dev"; 
         
-        // 3. 再生したいYouTubeの動画IDを指定します
+        // 再生したいYouTubeの動画ID
         const videoId = "dQw4w9WgXcQ"; 
 
-        // 4. プロキシのURLを組み立てて、プレイヤーにセットする
+        // URLの後ろに「?v=動画ID」をくっつける
         const player = document.getElementById('my-player');
-        player.src = `${proxyBaseUrl}?v=${videoId}`;
+        player.src = `${proxyBaseUrl}/?v=${videoId}`;
     </script>
 
 </body>
