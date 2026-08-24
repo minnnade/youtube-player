@@ -2,24 +2,65 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>YouTube再生テスト</title>
+    <title>YouTube自作プレイヤー</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .input-area { margin-bottom: 20px; display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        video { width: 100%; background: #000; }
+    </style>
 </head>
 <body>
 
-    <!-- crossorigin="anonymous" を入れてCORSエラーを防ぐ -->
-    <video id="my-player" controls width="100%" height="auto" crossorigin="anonymous"></video>
+    <h2>YouTube動画プレイヤー</h2>
+
+    <!-- URLを入力する場所 -->
+    <div class="input-area">
+        <input type="text" id="video-url" placeholder="YouTubeのURLを貼り付けてください（例: https://youtube.com）">
+        <button onclick="loadVideo()">再生</button>
+    </div>
+
+    <!-- プレイヤー本体 -->
+    <video id="my-player" controls crossorigin="anonymous"></video>
 
     <script>
-        // ⚠️【注意】あなたのCloudflareのURLを入れてください（末尾の / は消してください）
-        const proxyBaseUrl = "https://youtube-player.ahahadane.workers.dev"; 
-        
-        // 再生したいYouTubeの動画ID
-        const videoId = "dQw4w9WgXcQ"; 
+        // ⚠️【ココを書き換える】あなたのCloudflareのURLを入れてください（末尾の / は無し）
+        const proxyBaseUrl = "https://pages.dev"; 
 
-        // URLの後ろに「?v=動画ID」をくっつける
-        const player = document.getElementById('my-player');
-        player.src = `${proxyBaseUrl}/?v=${videoId}`;
+        function loadVideo() {
+            const inputUrl = document.getElementById('video-url').value.trim();
+            const player = document.getElementById('my-player');
+            
+            // 入力されたURLから動画ID（v=xxxx や 末尾のID）を抜き出す
+            let videoId = "";
+            try {
+                if (inputUrl.includes("youtu.be/")) {
+                    videoId = inputUrl.split("youtu.be/")[1].split(/[?#]/)[0];
+                } else if (inputUrl.includes("v=")) {
+                    videoId = inputUrl.split("v=")[1].split(/[&#]/)[0];
+                } else if (inputUrl.includes("embed/")) {
+                    videoId = inputUrl.split("embed/")[1].split(/[?#]/)[0];
+                } else {
+                    // URLではなく直接IDが入力された場合
+                    videoId = inputUrl;
+                }
+            } catch (e) {
+                alert("URLの解析に失敗しました。正しいURLを入力してください。");
+                return;
+            }
+
+            if (!videoId) {
+                alert("動画IDが見つかりませんでした。");
+                return;
+            }
+
+            // プロキシのURLを組み立てて再生開始
+            player.src = `${proxyBaseUrl}/?v=${videoId}`;
+            player.play().catch(err => console.log("自動再生がブロックされました:", err));
+        }
     </script>
 
 </body>
 </html>
+
