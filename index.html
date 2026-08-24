@@ -1,66 +1,70 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>YouTube自作プレイヤー</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        .input-area { margin-bottom: 20px; display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-        video { width: 100%; background: #000; }
-    </style>
-</head>
-<body>
+import { Innertube } from 'youtubei.js/web';
 
-    <h2>YouTube動画プレイヤー</h2>
+let yt;
+export default {
+  async fetch(req) {
+    const url = new URL(req.url);
+    
+    // ⚠️「?v=動画ID」だけでなく「?url=YouTubeのURL」でも受け取れるようにする
+    let videoId = url.searchParams.get('v');
+    const fullUrl = url.searchParams.get('url');
 
-    <!-- URLを入力する場所 -->
-    <div class="input-area">
-        <input type="text" id="video-url" placeholder="YouTubeのURLを貼り付けてください（例: https://youtube.com）">
-        <button onclick="loadVideo()">再生</button>
-    </div>
+    // もし?url=... でYouTubeのURLが届いたら、ここから動画ID（11文字）を抜き出す
+    if (fullUrl) {
+      if (fullUrl.includes('youtu.be/')) {
+        videoId = fullUrl.split('youtu.be/')[1]?.split(/[?#]/)[0];
+      } else if (fullUrl.includes('v=')) {
+        videoId = fullUrl.split('v=')[1]?.split(/[&#]/)[0];
+      } else if (fullUrl.includes('embed/')) {
+        videoId = fullUrl.split('embed/')[1]?.split(/[?#]/)[0];
+      } else {
+        videoId = fullUrl;
+      }
+    }
 
-    <!-- プレイヤー本体 -->
-    <video id="my-player" controls crossorigin="anonymous"></video>
+    if (!videoId) return new Response('Missing video ID (?v=xxx or ?url=xxx)', { status: 400 });
 
-    <script>
-        // ⚠️【ココを書き換える】あなたのCloudflareのURLを入れてください（末尾の / は無し）
-        const proxyBaseUrl = "https://youtube-player.ahahadane.workers.dev"; 
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    };
 
-        function loadVideo() {
-            const inputUrl = document.getElementById('video-url').value.trim();
-            const player = document.getElementById('my-player');
-            
-            // 入力されたURLから動画ID（v=xxxx や 末尾のID）を抜き出す
-            let videoId = "";
-            try {
-                if (inputUrl.includes("youtu.be/")) {
-                    videoId = inputUrl.split("youtu.be/")[1].split(/[?#]/)[0];
-                } else if (inputUrl.includes("v=")) {
-                    videoId = inputUrl.split("v=")[1].split(/[&#]/)[0];
-                } else if (inputUrl.includes("embed/")) {
-                    videoId = inputUrl.split("embed/")[1].split(/[?#]/)[0];
-                } else {
-                    // URLではなく直接IDが入力された場合
-                    videoId = inputUrl;
-                }
-            } catch (e) {
-                alert("URLの解析に失敗しました。正しいURLを入力してください。");
-                return;
-            }
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
 
-            if (!videoId) {
-                alert("動画IDが見つかりませんでした。");
-                return;
-            }
+    try {
+      if (!yt) {
+        yt = await Innertube.create({ 
+          fetch: (u, o) => fetch(u, o),
+          client_type: 'ANDROID' 
+        });
+      }
 
-            // プロキシのURLを組み立てて再生開始
-            player.src = `${proxyBaseUrl}/?v=${videoId}`;
-            player.play().catch(err => console.log("自動再生がブロックされました:", err));
-        }
-    </script>
+      const info = await yt.getBasicInfo(videoId);
+      const format = info.chooseFormat({ type: 'video+audio', quality: 'best' });
 
-</body>
-</html>
+      if (!format) return new Response('Format not found', { status: 404, headers: corsHeaders });
 
+      const decipheredUrl = await format.decipher(yt.session.player);
+
+      const ytHeaders = new Headers({ 
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
+        'Accept': '*/*'
+      });
+      if (req.headers.has('range')) ytHeaders.set('range', req.headers.get('range'));
+
+      const res = await fetch(decipheredUrl, { headers: ytHeaders });
+
+      const responseHeaders = new Headers(res.headers);
+      for (const [key, value] of Object.entries(corsHeaders)) {
+        responseHeaders.set(key, value);
+      }
+      
+      return new Response(res.body, { status: res.status, headers: responseHeaders });
+    } catch (e) {
+      return new Response(`Error: ${e.message}`, { status: 500, headers: corsHeaders });
+    }
+  }
+};
